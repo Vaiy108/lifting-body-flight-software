@@ -17,9 +17,13 @@ hardware, with measured cycle-accurate timing.
 
 ## Why a separate repo
 
-The two repos map onto genuinely different engineering skill sets and,
-not coincidentally: `lifting-body-gnc` is the evidence for a typical **GNC Engineer** workflow (modeling, estimation, control design, verification rigor); this repo is the evidence for an **Embedded Avionics Developer / Flight control Software** implementation workflow (bare-metal C, HAL/driver work,
-real-time behavior, measured hardware timing).
+The two repos map onto genuinely different engineering disciplines:
+`lifting-body-gnc` covers modeling, estimation, and control design —
+verification rigor at the algorithm level; this repo covers bare-metal
+embedded implementation — HAL/driver work, real-time behavior, and
+measured hardware timing. Splitting them lets each stand on its own as
+a focused, reviewable artifact instead of one repo trying to cover
+both disciplines at once.
 
 ## Verification chain
 
