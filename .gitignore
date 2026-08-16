@@ -1,0 +1,9 @@
+c/build/
+__pycache__/
+*.pyc
+# CubeIDE project artifacts (created when you generate the project per BRINGUP.md)
+Debug/
+Release/
+*.launch
+.settings/
+.metadata/

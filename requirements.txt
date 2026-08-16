@@ -1,0 +1,6 @@
+pyserial>=3.5
+# numpy and matplotlib are only needed for pil_driver.py's full
+# closed-loop demo, which also requires lifting-body-gnc cloned as a
+# sibling directory (see that repo's requirements.txt).
+numpy>=1.24
+matplotlib>=3.7
