@@ -1,0 +1,10 @@
+SIL cross-validation: C implementation vs. Python reference
+=============================================================
+  eskf_predict  rows=500  max|dpos|=6.939e-18 m  max|dvel|=7.459e-17 m/s  max|dq|=2.168e-19  max|dPdiag|=3.553e-15
+PASS  test_eskf_predict
+  eskf_update   rows=300  max|dpos|=8.327e-17 m  max|dvel|=8.327e-17 m/s  max|dPdiag|=1.110e-16
+PASS  test_eskf_update
+  control       rows=204  max|de_err|=0.000e+00 deg
+PASS  test_control
+=============================================================
+ALL SIL CROSS-VALIDATION TESTS PASSED
