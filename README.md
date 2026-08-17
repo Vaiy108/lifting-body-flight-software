@@ -115,6 +115,57 @@ the fix was both necessary and sufficient.
 
 
 
+## Hardware PIL results
+
+Full 30 s closed-loop scenario run against the flashed Nucleo-F401RE:
+
+```
+Backend: serial
+NAK'd (checksum-failed) steps: 0
+Round-trip time: mean=41.4 ms, p99=81.5 ms, max=83.1 ms
+Final theta: true=0.213 deg, est=0.619 deg, target=0.643 deg
+Final nav position error: [0.228 -0.081 -1.743] m (|.|=1.76 m)
+
+```
+
+![Hardware PIL closed-loop demo](docs/serial_pil_console_output.png)
+
+
+Matches the host-simulated PIL run essentially exactly (same
+`theta`/`de_cmd` at trim, same final attitude and nav error to three
+significant figures) — closing the full verification chain: Python
+reference → C SIL cross-validation → host-simulated PIL → real
+hardware PIL, with agreement preserved at every layer.
+
+![Hardware PIL closed-loop demo](docs/demo_pil_serial.png)
+
+### Hardware bring-up finding: Cortex-M4F unaligned-double hard fault
+
+During bring-up, `pil_core_step()` hard-faulted inside `vec3_sub()` on
+`eskf_predict()`'s first line — confirmed via the debugger's call
+stack. Root cause: `PilInputPacket` is `#pragma pack(1)` (required so
+the wire byte layout matches exactly between PC and target), which
+places `double` fields at unaligned memory offsets. x86 (host_sim)
+handles unaligned double access transparently, so this was invisible
+in all host-side SIL/PIL testing. Cortex-M4F's FPU load instruction
+(`VLDR`) requires proper alignment; the compiler generated an aligned
+load against a misaligned address, and the hardware faulted.
+
+**Fix:** `pil_core_step()` now `memcpy`s every multi-byte field out of
+the packed struct into ordinary, compiler-aligned local variables
+before any use — `memcpy` is alignment-safe regardless of source/
+destination alignment. Verified numerically identical to the pre-fix
+behavior (same SIL test vectors, same host-simulated PIL result,
+bit-for-bit unchanged) — confirming the fix changed only how the data
+is accessed, not what it computes.
+
+This is exactly the class of bug host-side SIL/PIL testing cannot
+catch, and the reason hardware PIL exists as a distinct verification
+stage.
+
+
+
+
 ## Status
 
 | Item | Status |
