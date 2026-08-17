@@ -56,22 +56,62 @@ hardware:
    flash-and-verify in progress -- see status table below.)*
 
 
-### Fix Cortex-M4F unaligned-double hard fault in pil_core_step()
+### Hardware bring-up finding: Cortex-M4F unaligned-double hard fault
 
-Found during STM32 Nucleo-F401RE hardware bring-up: pil_core_step()
-read multi-byte fields directly from the #pragma pack(1) PilInputPacket
-struct and passed them into eskf_predict()/etc. On x86 (host_sim)
-unaligned double access is transparent, so this was invisible in all
-host-side SIL/PIL testing. On Cortex-M4F, GCC emitted an FPU VLDR load
-against the resulting misaligned address, causing a hard fault --
-confirmed via the debugger call stack, which showed the fault inside
-vec3_sub() on eskf_predict()'s first line.
+During STM32 Nucleo-F401RE bring-up, `pil_core_step()` hard-faulted
+inside `vec3_sub()` on `eskf_predict()`'s first line — confirmed via
+the debugger's call stack. Root cause: `PilInputPacket` is
+`#pragma pack(1)` (required so the wire byte layout matches exactly
+between PC and target), which places `double` fields at unaligned
+memory offsets. x86 (host_sim) handles unaligned double access
+transparently, so this was invisible in all host-side SIL/PIL testing.
+Cortex-M4F's FPU load instruction (`VLDR`) requires proper alignment;
+the compiler generated an aligned load against a misaligned address,
+and the hardware faulted.
 
-Fix: memcpy every packed-struct field into ordinary, compiler-aligned
-local variables before use. Numerically identical to before (verified
-against the same SIL test vectors and host-simulated PIL run,
-bit-for-bit unchanged) -- this only changes how the data is accessed,
-not what it is.
+**Fix:** `pil_core_step()` now `memcpy`s every multi-byte field out of
+the packed struct into ordinary, compiler-aligned local variables
+before any use — `memcpy` is alignment-safe regardless of source/
+destination alignment. Verified numerically identical to the
+pre-fix behavior (same SIL test vectors, same host-simulated PIL
+result, bit-for-bit unchanged) — confirming the fix changed only how
+the data is accessed, not what it computes.
+
+This is exactly the class of bug host-side SIL/PIL testing cannot
+catch, and the reason hardware PIL exists as a distinct verification
+stage.
+
+## Hardware smoke test
+
+Before running the full 30 s closed-loop scenario, the flashed board
+was verified with a lightweight, zero-cross-repo-dependency check
+(`serial_ping_test.py`): 10 packets sent at the trim condition baked
+into `pil_core_init()`, checking the response against the known-correct
+trim values.
+
+```
+Connected to COM3 @ 115200 baud
+Sending 10 steps at trim (level-flight specific force, zero body rate, theta_cmd = theta_trim)
+step 0: OK theta_est=-0.02369 rad de_cmd=+10.279 deg cycles=1435709 rtt=38.19 ms
+step 1: OK theta_est=-0.02369 rad de_cmd=+10.279 deg cycles=1436104 rtt=38.67 ms
+...
+step 9: OK theta_est=-0.02369 rad de_cmd=+10.279 deg cycles=1438772 rtt=38.57 ms
+Round-trip: mean=38.79 ms, min=38.19 ms, max=40.28 ms
+ALL 10 STEPS OK -- board alive, protocol verified.
+```
+
+10/10 steps OK, `theta_est`/`de_cmd` matching the expected trim values
+exactly and consistently across every step. Round-trip time stable at
+~38-40 ms, giving an early, repeatable baseline before the longer
+closed-loop run.
+
+This test was run twice: once before the Cortex-M4F alignment fix
+(below), which reliably reproduced the hard fault (zero bytes back,
+board silently frozen mid-execution), and once after, which passed
+cleanly on the first attempt — useful independent confirmation that
+the fix was both necessary and sufficient.
+
+![Hardware PIL smoke test](docs/pil_smoke_test.png)
 
 
 

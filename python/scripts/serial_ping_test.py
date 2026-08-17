@@ -68,6 +68,9 @@ def main():
     ser = serial.Serial(args.port, args.baud, timeout=2)
     time.sleep(0.5)  # let the board's UART settle after port open
 
+    ser.reset_input_buffer()   # discard any stale bytes left over from a
+    ser.reset_output_buffer()  # previous run before we send/read anything
+
     print(f"Connected to {args.port} @ {args.baud} baud")
     print(f"Sending {args.n} steps at trim (level-flight specific force, "
          f"zero body rate, theta_cmd = theta_trim)\n")
