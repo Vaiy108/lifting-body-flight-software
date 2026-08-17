@@ -56,31 +56,6 @@ hardware:
    flash-and-verify in progress -- see status table below.)*
 
 
-### Hardware bring-up finding: Cortex-M4F unaligned-double hard fault
-
-During STM32 Nucleo-F401RE bring-up, `pil_core_step()` hard-faulted
-inside `vec3_sub()` on `eskf_predict()`'s first line — confirmed via
-the debugger's call stack. Root cause: `PilInputPacket` is
-`#pragma pack(1)` (required so the wire byte layout matches exactly
-between PC and target), which places `double` fields at unaligned
-memory offsets. x86 (host_sim) handles unaligned double access
-transparently, so this was invisible in all host-side SIL/PIL testing.
-Cortex-M4F's FPU load instruction (`VLDR`) requires proper alignment;
-the compiler generated an aligned load against a misaligned address,
-and the hardware faulted.
-
-**Fix:** `pil_core_step()` now `memcpy`s every multi-byte field out of
-the packed struct into ordinary, compiler-aligned local variables
-before any use — `memcpy` is alignment-safe regardless of source/
-destination alignment. Verified numerically identical to the
-pre-fix behavior (same SIL test vectors, same host-simulated PIL
-result, bit-for-bit unchanged) — confirming the fix changed only how
-the data is accessed, not what it computes.
-
-This is exactly the class of bug host-side SIL/PIL testing cannot
-catch, and the reason hardware PIL exists as a distinct verification
-stage.
-
 ## Hardware smoke test
 
 Before running the full 30 s closed-loop scenario, the flashed board
@@ -179,6 +154,8 @@ stage.
 | CubeIDE project created, firmware flashed |done |
 | Hardware PIL run, cycle-count timing captured | done |
 | CAN transport (Waveshare USB-CAN + MCP2515) | roadmap |
+
+
 
 ## Quick start
 
