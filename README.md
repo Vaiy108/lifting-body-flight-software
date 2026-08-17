@@ -86,6 +86,8 @@ board silently frozen mid-execution), and once after, which passed
 cleanly on the first attempt — useful independent confirmation that
 the fix was both necessary and sufficient.
 
+![Hardware PIL STM32 Flash via USART](docs/pil_stm32_flash.gif)
+
 ![Hardware PIL smoke test](docs/pil_smoke_test.png)
 
 
