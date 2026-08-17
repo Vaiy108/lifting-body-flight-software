@@ -55,6 +55,26 @@ hardware:
    *(Status: firmware source and bring-up guide complete; physical
    flash-and-verify in progress -- see status table below.)*
 
+
+### Fix Cortex-M4F unaligned-double hard fault in pil_core_step()
+
+Found during STM32 Nucleo-F401RE hardware bring-up: pil_core_step()
+read multi-byte fields directly from the #pragma pack(1) PilInputPacket
+struct and passed them into eskf_predict()/etc. On x86 (host_sim)
+unaligned double access is transparent, so this was invisible in all
+host-side SIL/PIL testing. On Cortex-M4F, GCC emitted an FPU VLDR load
+against the resulting misaligned address, causing a hard fault --
+confirmed via the debugger call stack, which showed the fault inside
+vec3_sub() on eskf_predict()'s first line.
+
+Fix: memcpy every packed-struct field into ordinary, compiler-aligned
+local variables before use. Numerically identical to before (verified
+against the same SIL test vectors and host-simulated PIL run,
+bit-for-bit unchanged) -- this only changes how the data is accessed,
+not what it is.
+
+
+
 ## Status
 
 | Item | Status |
@@ -65,8 +85,8 @@ hardware:
 | STM32 firmware source (`stm32/main_pil_loop.c`) | done |
 | CubeMX bring-up guide (`stm32/BRINGUP.md`) | done |
 | Standalone hardware smoke test (`serial_ping_test.py`) | done, verified against host-sim |
-| CubeIDE project created, firmware flashed | in progress |
-| Hardware PIL run, cycle-count timing captured | in progress |
+| CubeIDE project created, firmware flashed |done |
+| Hardware PIL run, cycle-count timing captured | done |
 | CAN transport (Waveshare USB-CAN + MCP2515) | roadmap |
 
 ## Quick start
